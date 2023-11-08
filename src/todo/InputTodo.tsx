@@ -1,3 +1,4 @@
+import { useState } from "react";
 
 interface IProps {
     name: string;
@@ -6,21 +7,37 @@ interface IProps {
         address: string;
         gender: string;
     }
-    abc?: string
+    handleTest: (name: string) => void;
+    listTodos: string[];
+    setListTodos: (value: string[]) => void
 }
 
 const InputTodo = (props: IProps) => {
-    console.log("props: ", props)
+    const { handleTest, listTodos, setListTodos } = props
+    const [todo, setTodo] = useState("")
+
+    const handleOnClick = () => {
+        if (!todo) {
+            alert(`Error`)
+            return
+        } else {
+            setListTodos([...listTodos, todo])
+            setTodo("")
+        }
+        // handleTest(todo);
+    }
+
     return (
-        <div>
-            <div>age: {props.age}</div>
-            <div>name: {props.name}</div>
-            <div>address: {props.info.address}</div>
-            <div>gender: {props.info.gender}</div>
+        <div style={{ border: "1px solid red", padding: "5px" }}>
             <div>Add new todo</div>
             <div>
-                <input style={{ margin: "5px" }}></input>
-                <button>Save</button>
+                <input
+                    value={todo}
+                    style={{ margin: "5px" }}
+                    type="text"
+                    onChange={(event) => { setTodo(event.target.value) }}>
+                </input>
+                <button onClick={() => { handleOnClick() }}>Save</button>
             </div>
         </div>
     )
