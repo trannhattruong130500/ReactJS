@@ -1,38 +1,47 @@
 import { useEffect, useState } from "react";
 // import "../../styles/users.css";
-import { Button, Table, Modal, Input, notification } from 'antd';
+import { Button, Table, Modal, Input, notification, Popconfirm, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined } from '@ant-design/icons';
-import { EyeInvisibleOutlined, EyeTwoTone } from '@ant-design/icons';
+import CreateUsersModal from "./create.users.modal";
+import UpdateUsersModal from "./update.users.modal";
 
-interface IUsers {
+
+export interface IUsers {
     _id: string;
     email: string;
     name: string;
     role: string;
+    address: string;
+    age: string;
+    gender: string;
 }
 
 const UsersTable = () => {
     const [listUsers, setListUsers] = useState([])
 
-    const [name, setName] = useState("");
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [age, setAge] = useState("");
-    const [gender, setGender] = useState("");
-    const [address, setAddress] = useState("");
-    const [role, setRole] = useState("");
+    const access_token = localStorage.getItem("access_token") as string;
 
-    const access_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0b2tlbiBsb2dpbiIsImlzcyI6ImZyb20gc2VydmVyIiwiX2lkIjoiNjUzN2U2Mjk4NjBiNTNjYTVhMDMzNzRmIiwiZW1haWwiOiJhZG1pbkBnbWFpbC5jb20iLCJhZGRyZXNzIjoiVmlldE5hbSIsImlzVmVyaWZ5Ijp0cnVlLCJuYW1lIjoiSSdtIGFkbWluIiwidHlwZSI6IlNZU1RFTSIsInJvbGUiOiJBRE1JTiIsImdlbmRlciI6Ik1BTEUiLCJhZ2UiOjY5LCJpYXQiOjE2OTgyMjA4MzIsImV4cCI6MTc4NDYyMDgzMn0.gzkaVH7cDhe6OVuwsJe_uxtWzbW0b47acwJOhxtlTTs"
+    const [isModalCreateOpen, setIsModalCreateOpen] = useState(false);
 
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isModalUpdateOpen, setIsModalUpdateOpen] = useState(false);
+
+    const [dataUpdate, setDataUpdate] = useState<null | IUsers>(null)
+
+    const [meta, setMeta] = useState({
+        current: 1,
+        pageSize: 5,
+        pages: 0,
+        total: 0
+    })
 
     useEffect(() => {
         getData()
     }, [])
+
     const getData = async () => {
         const res = await fetch(
-            "http://localhost:8000/api/v1/users",
+            `http://localhost:8000/api/v1/users?current=${meta.current}&pageSize=${meta.pageSize}`,
             {
                 headers: {
                     'Authorization': `Bearer ${access_token}`,
@@ -41,46 +50,41 @@ const UsersTable = () => {
             }
         )
         const d = await res.json();
+        if (!d) {
+            notification.error({
+                message: JSON.stringify(d.message)
+            })
+        }
         setListUsers(d.data.result)
+        setMeta({
+            current: d.data.meta.current,
+            pageSize: d.data.meta.pageSize,
+            pages: d.data.meta.pages,
+            total: d.data.meta.total
+        })
     }
 
-    const handleOk = async () => {
-        const data = {
-            name, email, password, gender, age, role, address
-        }
+    const confirm = async (users: IUsers) => {
         const res = await fetch(
-            "http://localhost:8000/api/v1/users",
+            `http://localhost:8000/api/v1/users/${users._id}`,
             {
-                method: "POST",
+                method: "DELETE",
                 headers: {
                     'Authorization': `Bearer ${access_token}`,
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ ...data })
             }
         )
         const d = await res.json();
-        console.log('>>>Creact data: ', d)
         if (d.data) {
-            await getData();
             notification.success({
-                message: "Thành công!",
+                message: JSON.stringify(d.message)
             })
-            setIsModalOpen(false)
-            setName("");
-            setEmail("");
-            setAddress("");
-            setAge("");
-            setRole("");
-            setGender("");
-            setPassword("");
-
+            await getData()
         } else {
             notification.error({
-                message: "Có lỗi xảy ra!!",
-                description: JSON.stringify(d.message)
+                message: JSON.stringify(d.message)
             })
-            setIsModalOpen(true)
         }
     };
 
@@ -102,7 +106,56 @@ const UsersTable = () => {
             title: 'Role',
             dataIndex: 'role'
         },
+        {
+            title: 'Action',
+            render: (value, record) => {
+                return (
+                    <div>
+                        <Button style={{ marginRight: "15px" }} type="primary" onClick={() => {
+                            setDataUpdate(record), setIsModalUpdateOpen(true)
+                        }} >
+                            Edit
+                        </Button>
+                        <Popconfirm
+                            title="Delete the task"
+                            description={`Are you sure to delete Users "${record.name}"?`}
+                            onConfirm={() => confirm(record)}
+                            okText="Yes"
+                            cancelText="No"
+                        >
+                            <Button danger>Delete</Button>
+                        </Popconfirm>
+                    </div>
+                )
+            }
+        },
     ]
+
+    const handleOnchange = async (page: number, pageSize: number) => {
+        const res = await fetch(
+            `http://localhost:8000/api/v1/users?current=${page}&pageSize=${pageSize}`,
+            {
+                headers: {
+                    'Authorization': `Bearer ${access_token}`,
+                    "Content-Type": "application/json",
+                },
+            }
+        )
+        const d = await res.json();
+        if (!d) {
+            notification.error({
+                message: JSON.stringify(d.message)
+            })
+        }
+        setListUsers(d.data.result)
+        setMeta({
+            current: d.data.meta.current,
+            pageSize: d.data.meta.pageSize,
+            pages: d.data.meta.pages,
+            total: d.data.meta.total
+        })
+        console.log(`>>>check size: `, page, pageSize)
+    }
 
     return (
         <div>
@@ -116,73 +169,41 @@ const UsersTable = () => {
                     <Button
                         type={"primary"}
                         icon={<PlusOutlined />}
-                        onClick={() => setIsModalOpen(true)}>Add new
+                        onClick={() => setIsModalCreateOpen(true)}>Add new
                     </Button>
                 </div>
             </div>
-            <Modal title="Add a new  users"
-                open={isModalOpen}
-                onOk={handleOk}
-                onCancel={() => setIsModalOpen(false)}
-                maskClosable={false}
-            >
-                <div>
-                    <div>Name</div>
-                    <Input
-                        value={name}
-                        onChange={(event) => setName(event.target.value)}
-                    ></Input>
-                </div>
-                <div>
-                    <div>Email</div>
-                    <Input
-                        value={email}
-                        onChange={(event) => setEmail(event.target.value)}
-                    ></Input>
-                </div>
-                <div>
-                    <div>Password</div>
-                    <Input.Password
-                        placeholder="input password"
-                        iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
-                        value={password}
-                        onChange={(event) => setPassword(event.target.value)}
-                    />
-                </div>
-                <div>
-                    <div>Age</div>
-                    <Input
-                        value={age}
-                        onChange={(event) => setAge(event.target.value)}
-                    ></Input>
-                </div>
-                <div>
-                    <div>Gender</div>
-                    <Input
-                        value={gender}
-                        onChange={(event) => setGender(event.target.value)}
-                    ></Input>
-                </div>
-                <div>
-                    <div>Address</div>
-                    <Input
-                        value={address}
-                        onChange={(event) => setAddress(event.target.value)}
-                    ></Input>
-                </div>
-                <div>
-                    <div>Role</div>
-                    <Input
-                        value={role}
-                        onChange={(event) => setRole(event.target.value)}
-                    ></Input>
-                </div>
-            </Modal>
+
             <Table
                 columns={columns}
                 dataSource={listUsers}
                 rowKey={"_id"}
+                pagination={{
+                    showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
+                    current: meta.current,
+                    pageSize: meta.pageSize,
+                    total: meta.total,
+                    onChange: (page: number, pageSize: number) => handleOnchange(page, pageSize),
+                    showSizeChanger: true
+                }}
             />
+
+            <CreateUsersModal
+                access_token={access_token}
+                getData={getData}
+                isModalCreateOpen={isModalCreateOpen}
+                setIsModalCreateOpen={setIsModalCreateOpen}
+            />
+
+            <UpdateUsersModal
+                access_token={access_token}
+                getData={getData}
+                isModalUpdateOpen={isModalUpdateOpen}
+                setIsModalUpdateOpen={setIsModalUpdateOpen}
+                dataUpdate={dataUpdate}
+                setDataUpdate={setDataUpdate}
+            />
+
         </div>
     )
 }
